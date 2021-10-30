@@ -7,6 +7,7 @@ class Card(pygame.sprite.Sprite):
 			- num: int card number
 			- center: position tuple 
 	"""
+	
 	def __init__(self, suit, num, center):
 		pygame.sprite.Sprite.__init__(self)
 
@@ -28,4 +29,3 @@ class Card(pygame.sprite.Sprite):
 
 		self.rect = self.image.get_rect()
 		self.rect.center = center
-
