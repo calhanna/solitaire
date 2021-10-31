@@ -4,12 +4,14 @@
 # - Add ability to win
 # - Undo/Redo
 # - Maybe if I have time try and make every game solvable with some Weird Maths (tm)
+# - UI (Menu colour = (217, 217, 217))
 
 import pygame, random
 
 from card import Card
 from stack import Stack
 from hand import Hand
+from button import Button
 
 # Initialise window
 pygame.init()
@@ -21,10 +23,23 @@ pygame.display.set_caption('Solitaire')
 card_back = pygame.image.load('images/cards/cardBack.png')	# Card back sprite. Used for hidden cards and the stock
 card_back = pygame.transform.scale(card_back, (70, 95))
 
+# UI buttons
+buttons = [
+	Button((15,15), 'reset()', 'new_game'), # Reset button
+	Button((55,15), 'undo()', 'undo'), # Undo button
+	Button((95,15), 'undo_count -= 2; undo()', 'redo')
+	]
+
 hand = Hand(pygame.mouse.get_pos())
+
+history = [] 		# An array of tuples that contain the current tableau, foundations and stock. Used for undo/redo functionality
+undo_count = 0
 
 def handle_events(events):
 	""" Handle pygame events. Returns True if the window has been closed"""
+
+	global history, undo_count
+
 	mouse = pygame.mouse.get_pos()
 
 	for event in events:
@@ -33,8 +48,19 @@ def handle_events(events):
 			return True
 
 		elif event.type == pygame.MOUSEBUTTONDOWN:
-			if mouse[1] < 120:							# If the mouse is at the top of the screen, check for stock
+			for button in buttons:
+				# Button functionality.
+				if button.collidepoint(pygame.mouse.get_pos()):
+					exec(button.function)
+					button.clicked = True
+
+			if mouse[1] < 175:							# If the mouse is at the top of the screen, check for stock
 				if stock.collidepoint(mouse):
+					if undo_count > 1:
+						history = []
+						undo_count = 1
+
+					update_history()
 					cycle_stock()
 				elif stock.move(100,0).collidepoint(mouse) and len(stock.revealed_cards) > 0:
 					hand.cards = [stock.revealed_cards[-1]]
@@ -59,9 +85,20 @@ def handle_events(events):
 		elif event.type == pygame.MOUSEBUTTONUP:
 			if len(hand.cards) > 0:
 				hand.cards = place_cards()
+			
+			for button in buttons:
+				button.clicked = False
 
 def place_cards():
+	global history, undo_count
+
 	mouse = pygame.mouse.get_pos()
+
+	#if undo_count > 1:
+	#	history = []
+	#	undo_count = 1
+
+	update_history()
 	
 	for stack in tableau:
 		# Check if the card has been dragged over a stack
@@ -190,7 +227,7 @@ def create_board(deck):
 	x = 100
 	length = 1
 	for i in range(7):
-		stack = Stack(x, 200, 400)
+		stack = Stack(x, 250, 400)
 
 		for i in range(length):
 			stack.hidden_cards.append(Card(deck[0][0], deck[0][1], (x, stack.y+20*i)))		# Add cards to stack
@@ -208,11 +245,11 @@ def create_board(deck):
 	# Create foundations
 	x = 365
 	for i in range(4):
-		foundations.append(Stack(x, 30, 90))
+		foundations.append(Stack(x, 80, 90))
 		x += 100
 
 	# Remaining cards get added to stock.
-	stock = Stack(65, 30, 90)
+	stock = Stack(65, 80, 90)
 	for card in deck:
 		stock.hidden_cards.append(Card(card[0], card[1], stock.center))
 
@@ -220,6 +257,78 @@ def create_board(deck):
 
 deck = create_deck()
 tableau, foundations, stock = create_board(deck)
+
+def reset():
+	global deck, tableau, foundations, stock
+
+	deck = create_deck()
+	tableau, foundations, stock = create_board(deck)
+
+def undo():	
+	""" Reverts the gamestate back to the last entry in the history """
+	global tableau, foundations, stock, undo_count
+
+	#update_history()
+
+	undo_count += 1
+
+	try:
+		old_tableau = history[-undo_count][0]
+		for stack in tableau:
+			stack_num = tableau.index(stack)
+			stack.hidden_cards = old_tableau[stack_num].hidden_cards
+			stack.revealed_cards = old_tableau[stack_num].revealed_cards
+		
+		old_foundations = history[-undo_count][1]
+		for stack in foundations:
+			stack_num = foundations.index(stack)
+			stack.revealed_cards = old_foundations[stack_num].revealed_cards
+		
+		stock.hidden_cards = history[-undo_count][2][0]
+		stock.revealed_cards = history[-undo_count][2][1]
+	except IndexError:
+		pass
+
+def update_history():
+	""" Adds a new entry to the history containing the current gamestate """
+	global history, undo_count
+
+	current_tableau = []		# List of all the stacks currently in the tableau
+	current_foundations = []	# list of the all the current foundations
+
+	# We have to create new stacks like this because if we just add the current stacks, they're the same object in two lists and so the stacks in the history are the same as the current
+	# As such, we create completely new objects to add to the history. We do this for the tableau, the foundation and the stock.
+	for stack in tableau:
+		new_stack = Stack(stack.x, stack.y, stack.height)
+		
+		for card in stack.revealed_cards:
+			new_card = Card(card.suit, card.value, card.rect.center)
+			new_stack.revealed_cards.append(new_card)
+
+		for card in stack.hidden_cards:
+			new_card = Card(card.suit, card.value, card.rect.center)
+			new_stack.hidden_cards.append(new_card)
+
+		current_tableau.append(new_stack)
+
+	for foundation in foundations:
+		new_foundation = Stack(foundation.x, foundation.y, foundation.height)
+
+		for card in foundation.revealed_cards:
+			new_card = Card(card.suit, card.value, card.rect.center)
+			new_foundation.revealed_cards.append(new_card)
+		
+		current_foundations.append(new_foundation)
+
+	current_stock = [[], []]				# First list is the hidden cards, second is the revealed cards
+	for card in stock.hidden_cards:
+		new_card = Card(card.suit, card.value, card.rect.center)
+		current_stock[0].append(new_card)
+	for card in stock.revealed_cards:
+		new_card = Card(card.suit, card.value, card.rect.center)
+		current_stock[1].append(new_card)
+
+	history.append((current_tableau, current_foundations, current_stock))
 
 def draw():
 	screen.fill((0,150,0))
@@ -261,6 +370,9 @@ def draw():
 
 	hand.draw(screen)
 
+	for button in buttons:
+		button.draw(screen)
+
 	pygame.display.flip()
 
 done = False
@@ -274,6 +386,19 @@ while not done:
 		if len(stack.revealed_cards) == 0 and len(stack.hidden_cards) > 0:
 			stack.revealed_cards.append(stack.hidden_cards[-1])
 			stack.hidden_cards.pop(-1)
+
+	hovering = False
+	for button in buttons:
+		if button.collidepoint(pygame.mouse.get_pos()) and not button.clicked:
+			button.hover = True
+			hovering = True
+		else:
+			button.hover = False
+
+	if hovering:
+		pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
+	else:
+		pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_ARROW)
 
 	draw()
 
