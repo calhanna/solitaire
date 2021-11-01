@@ -1,10 +1,7 @@
 # TO DO
 # - Fan held cards
-# - Add ability to reset game
 # - Add ability to win
-# - Undo/Redo
 # - Maybe if I have time try and make every game solvable with some Weird Maths (tm)
-# - UI (Menu colour = (217, 217, 217))
 
 import pygame, random
 
@@ -22,23 +19,24 @@ pygame.display.set_caption('Solitaire')
 # Variable Definition
 card_back = pygame.image.load('images/cards/cardBack.png')	# Card back sprite. Used for hidden cards and the stock
 card_back = pygame.transform.scale(card_back, (70, 95))
+click_timer = 0
+dt = 0
+double_click = False
 
 # UI buttons
 buttons = [
 	Button((15,15), 'reset()', 'new_game'), # Reset button
 	Button((55,15), 'undo()', 'undo'), # Undo button
-	Button((95,15), 'undo_count -= 2; undo()', 'redo')
 	]
 
 hand = Hand(pygame.mouse.get_pos())
 
 history = [] 		# An array of tuples that contain the current tableau, foundations and stock. Used for undo/redo functionality
-#undo_count = -1
 
 def handle_events(events):
 	""" Handle pygame events. Returns True if the window has been closed"""
 
-	global history, undo_count
+	global click_timer, double_click
 
 	mouse = pygame.mouse.get_pos()
 
@@ -48,55 +46,81 @@ def handle_events(events):
 			return True
 
 		elif event.type == pygame.MOUSEBUTTONDOWN:
-			for button in buttons:
-				# Button functionality.
-				if button.collidepoint(pygame.mouse.get_pos()):
-					exec(button.function)
-					button.clicked = True
+			if event.button == 1:
+				if click_timer == 0:
+					click_timer = 0.001
+				elif click_timer < 0.5:
+					double_click = True
+					click_timer = 0
 
-			if mouse[1] < 175:							# If the mouse is at the top of the screen, check for stock
-				if stock.collidepoint(mouse):
-					history.insert(0, update_history())
-					#undo_count = -1
-					cycle_stock()
-				elif stock.move(100,0).collidepoint(mouse) and len(stock.revealed_cards) > 0:
-					hand.cards = [stock.revealed_cards[-1]]
+				for button in buttons:
+					# Button functionality.
+					if button.collidepoint(pygame.mouse.get_pos()):
+						button.clicked = True
+
+				if mouse[1] < 175:							# If the mouse is at the top of the screen, check for stock
+					if stock.collidepoint(mouse):
+						history.insert(0, update_history())
+						#undo_count = -1
+						cycle_stock()
+					elif stock.move(100,0).collidepoint(mouse) and len(stock.revealed_cards) > 0:
+						if double_click:
+							card = stock.revealed_cards[-1]
+							for foundation in foundations:
+								if check_cards(card, foundation):
+									foundation.revealed_cards.append(card)
+									card.rect = foundation
+									stock.revealed_cards.remove(card)
+
+									return False
+						hand.cards = [stock.revealed_cards[-1]]
+					else:
+						for foundation in foundations:
+							if foundation.collidepoint(mouse):
+								hand.cards = [foundation.revealed_cards[-1]]
 				else:
-					for foundation in foundations:
-						if foundation.collidepoint(mouse):
-							hand.cards = [foundation.revealed_cards[-1]]
-			else:
-				for stack in tableau:
-					if stack.move(-35,-45).collidepoint(mouse):		# Check if the mouse is over the stack. We move it because the stack's actual position is a little offset from where it's drawn
-						# Find all cards that are below the mouse
-						eligible_cards = []
-						for card in stack.revealed_cards:
-							if card.rect.collidepoint(mouse):
-								eligible_cards.append(card)
-						
-						# We only want to grab the card we are actually hovering over, so get the furthest forward eligible card
-						if len(eligible_cards) > 0:
-							card = eligible_cards[-1]
-							hand.cards = stack.revealed_cards[stack.revealed_cards.index(card):]
+					for stack in tableau:
+						if stack.move(-35,-45).collidepoint(mouse):		# Check if the mouse is over the stack. We move it because the stack's actual position is a little offset from where it's drawn
+							# Find all cards that are below the mouse
+							eligible_cards = []
+							for card in stack.revealed_cards:
+								if card.rect.collidepoint(mouse):
+									eligible_cards.append(card)
+							
+							# We only want to grab the card we are actually hovering over, so get the furthest forward eligible card
+							if len(eligible_cards) > 0:
+								card = eligible_cards[-1]
+
+								if card == stack.revealed_cards[-1] and double_click:
+									for foundation in foundations:
+										if check_cards(card, foundation):
+											foundation.revealed_cards.append(card)
+											card.rect = foundation
+											stack.revealed_cards.remove(card)
+
+											return False
+
+								hand.cards = stack.revealed_cards[stack.revealed_cards.index(card):]
+
+				double_click = False
 
 		elif event.type == pygame.MOUSEBUTTONUP:
 			if len(hand.cards) > 0:
 				hand.cards = place_cards()
 			
 			for button in buttons:
+				if button.clicked and button.collidepoint(mouse):
+					exec(button.function)
 				button.clicked = False
 
 def place_cards():
-	global history#, undo_count
+	""" Handles the movement of cards after all checks have completed """
+
+	global history
 
 	mouse = pygame.mouse.get_pos()
 
-	#if undo_count > 1:
-	#	history = []
-	#	undo_count = 1
-
 	history.insert(0, update_history())
-	#undo_count = -1
 	
 	for stack in tableau:
 		# Check if the card has been dragged over a stack
@@ -257,24 +281,20 @@ deck = create_deck()
 tableau, foundations, stock = create_board(deck)
 
 def reset():
-	global deck, tableau, foundations, stock, history, undo_count
+	""" Resets the game """
+
+	global deck, tableau, foundations, stock, history
 
 	deck = create_deck()
 	tableau, foundations, stock = create_board(deck)
 	history = []
-	undo_count = -1
 
 def undo():	
-	""" Reverts the gamestate back to the last entry in the history """
-	global tableau, foundations, stock, undo_count
+	""" Reverts the gamestate back to the frontmost entry in the history, and then removes the frontmost entry """
+	global tableau, foundations, stock
 
 	try:
-		#update_history()
-		#if update_history() != history[undo_count] and undo_count < len(history) - 1:
-		#	undo_count += 1
-
-		#print(undo_count)
-
+		# Set the contents of every stack in the tableau to the contents of the previous equavalent 
 		old_tableau = history[0][0]
 		for stack in tableau:
 			stack_num = tableau.index(stack)
@@ -291,6 +311,7 @@ def undo():
 
 		history.pop(0)
 	except IndexError:
+		# This error occurs if the history is empty and there is nothing to undo. As such, we simply ignore it.
 		pass
 
 def update_history():
@@ -334,6 +355,8 @@ def update_history():
 	return (current_tableau, current_foundations, current_stock)
 
 def draw():
+	""" Draws every object to the screen """
+
 	screen.fill((0,150,0))
 
 	# Draw cards in tableau
@@ -390,6 +413,7 @@ while not done:
 			stack.revealed_cards.append(stack.hidden_cards[-1])
 			stack.hidden_cards.pop(-1)
 
+	# Change the colour of the currently moused-over button so it looks clickable
 	hovering = False
 	for button in buttons:
 		if button.collidepoint(pygame.mouse.get_pos()) and not button.clicked:
@@ -398,6 +422,7 @@ while not done:
 		else:
 			button.hover = False
 
+	# Change cursor if over a clickable button, and change it back if not.
 	if hovering:
 		pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND)
 	else:
@@ -405,4 +430,10 @@ while not done:
 
 	draw()
 
-	clock.tick(60)
+	# Delay for double clicking
+	if click_timer > 0:
+		click_timer += dt
+		if click_timer >= 0.5:
+			click_timer = 0
+
+	dt = clock.tick(60) / 1000
