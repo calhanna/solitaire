@@ -23,6 +23,12 @@ click_timer = 0
 dt = 0
 double_click = False
 
+congrats = pygame.image.load('images/congrats.png')
+title_rect = pygame.rect.Rect(0,0,300,60)
+title_rect.center = (400, 250)
+
+victory = False
+
 # UI buttons
 buttons = [
 	Button((15,15), 'reset()', 'new_game'), # Reset button
@@ -58,49 +64,49 @@ def handle_events(events):
 					if button.collidepoint(pygame.mouse.get_pos()):
 						button.clicked = True
 
-				if mouse[1] < 175:							# If the mouse is at the top of the screen, check for stock
-					if stock.collidepoint(mouse):
-						history.insert(0, update_history())
-						#undo_count = -1
-						cycle_stock()
-					elif stock.move(100,0).collidepoint(mouse) and len(stock.revealed_cards) > 0:
-						if double_click:
-							card = stock.revealed_cards[-1]
+				if not victory:
+					if mouse[1] < 175:							# If the mouse is at the top of the screen, check for stock
+						if stock.collidepoint(mouse):
+							history.insert(0, update_history())
+							cycle_stock()
+						elif stock.move(100,0).collidepoint(mouse) and len(stock.revealed_cards) > 0:
+							if double_click:
+								card = stock.revealed_cards[-1]
+								for foundation in foundations:
+									if check_cards(card, foundation):
+										foundation.revealed_cards.append(card)
+										card.rect = foundation
+										stock.revealed_cards.remove(card)
+
+										return False
+							hand.cards = [stock.revealed_cards[-1]]
+						else:
 							for foundation in foundations:
-								if check_cards(card, foundation):
-									foundation.revealed_cards.append(card)
-									card.rect = foundation
-									stock.revealed_cards.remove(card)
-
-									return False
-						hand.cards = [stock.revealed_cards[-1]]
+								if foundation.collidepoint(mouse):
+									hand.cards = [foundation.revealed_cards[-1]]
 					else:
-						for foundation in foundations:
-							if foundation.collidepoint(mouse):
-								hand.cards = [foundation.revealed_cards[-1]]
-				else:
-					for stack in tableau:
-						if stack.move(-35,-45).collidepoint(mouse):		# Check if the mouse is over the stack. We move it because the stack's actual position is a little offset from where it's drawn
-							# Find all cards that are below the mouse
-							eligible_cards = []
-							for card in stack.revealed_cards:
-								if card.rect.collidepoint(mouse):
-									eligible_cards.append(card)
-							
-							# We only want to grab the card we are actually hovering over, so get the furthest forward eligible card
-							if len(eligible_cards) > 0:
-								card = eligible_cards[-1]
+						for stack in tableau:
+							if stack.move(-35,-45).collidepoint(mouse):		# Check if the mouse is over the stack. We move it because the stack's actual position is a little offset from where it's drawn
+								# Find all cards that are below the mouse
+								eligible_cards = []
+								for card in stack.revealed_cards:
+									if card.rect.collidepoint(mouse):
+										eligible_cards.append(card)
+								
+								# We only want to grab the card we are actually hovering over, so get the furthest forward eligible card
+								if len(eligible_cards) > 0:
+									card = eligible_cards[-1]
 
-								if card == stack.revealed_cards[-1] and double_click:
-									for foundation in foundations:
-										if check_cards(card, foundation):
-											foundation.revealed_cards.append(card)
-											card.rect = foundation
-											stack.revealed_cards.remove(card)
+									if card == stack.revealed_cards[-1] and double_click:
+										for foundation in foundations:
+											if check_cards(card, foundation):
+												foundation.revealed_cards.append(card)
+												card.rect = foundation
+												stack.revealed_cards.remove(card)
 
-											return False
+												return False
 
-								hand.cards = stack.revealed_cards[stack.revealed_cards.index(card):]
+									hand.cards = stack.revealed_cards[stack.revealed_cards.index(card):]
 
 				double_click = False
 
@@ -110,7 +116,10 @@ def handle_events(events):
 			
 			for button in buttons:
 				if button.clicked and button.collidepoint(mouse):
-					exec(button.function)
+					try:
+						exec(button.function)
+					except IndexError:
+						return True
 				button.clicked = False
 
 def place_cards():
@@ -283,11 +292,12 @@ tableau, foundations, stock = create_board(deck)
 def reset():
 	""" Resets the game """
 
-	global deck, tableau, foundations, stock, history
+	global deck, tableau, foundations, stock, history, victory
 
 	deck = create_deck()
 	tableau, foundations, stock = create_board(deck)
 	history = []
+	victory = False
 
 def undo():	
 	""" Reverts the gamestate back to the frontmost entry in the history, and then removes the frontmost entry """
@@ -399,6 +409,9 @@ def draw():
 	for button in buttons:
 		button.draw(screen)
 
+	if victory:
+		screen.blit(congrats, title_rect)
+
 	pygame.display.flip()
 
 done = False
@@ -435,5 +448,21 @@ while not done:
 		click_timer += dt
 		if click_timer >= 0.5:
 			click_timer = 0
+
+	# Victory checking
+	if not victory:
+		victory = True
+		for stack in tableau:
+			if len(stack.hidden_cards) != 0 or len(stack.revealed_cards) != 0:
+				victory = False
+		if len(stack.revealed_cards) != 0 or len(stack.hidden_cards) != 0:
+			victory = False
+		
+		if victory:
+			buttons = [
+				Button((300, 280), 'reset()', 'new_game_l'),
+				Button((400, 280), 'raise IndexError', 'quit')
+			]
+	
 
 	dt = clock.tick(60) / 1000
