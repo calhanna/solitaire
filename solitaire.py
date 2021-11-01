@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 # TO DO
 # - Fan held cards
 # - Add ability to win
@@ -457,11 +459,11 @@ while not done:
 	# Victory checking
 	if not victory:
 		victory = True
-		#for stack in tableau:
-		#	if len(stack.hidden_cards) != 0 or len(stack.revealed_cards) != 0:
-		#		victory = False
-		#if len(stack.revealed_cards) != 0 or len(stack.hidden_cards) != 0:
-		#	victory = False
+		for stack in tableau:
+			if len(stack.hidden_cards) != 0 or len(stack.revealed_cards) != 0:
+				victory = False
+		if len(stack.revealed_cards) != 0 or len(stack.hidden_cards) != 0:
+			victory = False
 		
 		if victory:
 			buttons = [
