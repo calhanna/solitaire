@@ -1,2 +1,2 @@
 # solitaire
-A solitaire clone that should be much cleaner and more functional than my last attempt
+A version of Klondike solitaire, based on that found in the gnome-games package. Made in python3 using the library PyGame and assets from the library PythonArcade.
