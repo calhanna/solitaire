@@ -6,3 +6,5 @@ Rules:
   - You can undo, but not redo. Redo it yourself.
   - Double clicking on a card will send it to the appropriate foundation
   - Passes through the stock are unlimited unless you're playing on hard mode (coming soon)
+
+Other than that, this is just normal Klondike
