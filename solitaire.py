@@ -33,7 +33,7 @@ buttons = [
 hand = Hand(pygame.mouse.get_pos())
 
 history = [] 		# An array of tuples that contain the current tableau, foundations and stock. Used for undo/redo functionality
-undo_count = 0
+#undo_count = -1
 
 def handle_events(events):
 	""" Handle pygame events. Returns True if the window has been closed"""
@@ -56,11 +56,8 @@ def handle_events(events):
 
 			if mouse[1] < 175:							# If the mouse is at the top of the screen, check for stock
 				if stock.collidepoint(mouse):
-					if undo_count > 1:
-						history = []
-						undo_count = 1
-
-					update_history()
+					history.insert(0, update_history())
+					#undo_count = -1
 					cycle_stock()
 				elif stock.move(100,0).collidepoint(mouse) and len(stock.revealed_cards) > 0:
 					hand.cards = [stock.revealed_cards[-1]]
@@ -90,7 +87,7 @@ def handle_events(events):
 				button.clicked = False
 
 def place_cards():
-	global history, undo_count
+	global history#, undo_count
 
 	mouse = pygame.mouse.get_pos()
 
@@ -98,7 +95,8 @@ def place_cards():
 	#	history = []
 	#	undo_count = 1
 
-	update_history()
+	history.insert(0, update_history())
+	#undo_count = -1
 	
 	for stack in tableau:
 		# Check if the card has been dragged over a stack
@@ -259,39 +257,44 @@ deck = create_deck()
 tableau, foundations, stock = create_board(deck)
 
 def reset():
-	global deck, tableau, foundations, stock
+	global deck, tableau, foundations, stock, history, undo_count
 
 	deck = create_deck()
 	tableau, foundations, stock = create_board(deck)
+	history = []
+	undo_count = -1
 
 def undo():	
 	""" Reverts the gamestate back to the last entry in the history """
 	global tableau, foundations, stock, undo_count
 
-	#update_history()
-
-	undo_count += 1
-
 	try:
-		old_tableau = history[-undo_count][0]
+		#update_history()
+		#if update_history() != history[undo_count] and undo_count < len(history) - 1:
+		#	undo_count += 1
+
+		#print(undo_count)
+
+		old_tableau = history[0][0]
 		for stack in tableau:
 			stack_num = tableau.index(stack)
 			stack.hidden_cards = old_tableau[stack_num].hidden_cards
 			stack.revealed_cards = old_tableau[stack_num].revealed_cards
 		
-		old_foundations = history[-undo_count][1]
+		old_foundations = history[0][1]
 		for stack in foundations:
 			stack_num = foundations.index(stack)
 			stack.revealed_cards = old_foundations[stack_num].revealed_cards
 		
-		stock.hidden_cards = history[-undo_count][2][0]
-		stock.revealed_cards = history[-undo_count][2][1]
+		stock.hidden_cards = history[0][2][0]
+		stock.revealed_cards = history[0][2][1]
+
+		history.pop(0)
 	except IndexError:
 		pass
 
 def update_history():
 	""" Adds a new entry to the history containing the current gamestate """
-	global history, undo_count
 
 	current_tableau = []		# List of all the stacks currently in the tableau
 	current_foundations = []	# list of the all the current foundations
@@ -328,7 +331,7 @@ def update_history():
 		new_card = Card(card.suit, card.value, card.rect.center)
 		current_stock[1].append(new_card)
 
-	history.append((current_tableau, current_foundations, current_stock))
+	return (current_tableau, current_foundations, current_stock)
 
 def draw():
 	screen.fill((0,150,0))
