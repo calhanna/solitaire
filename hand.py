@@ -11,8 +11,10 @@ class Hand(Rect):
     def draw(self, screen):
         # Will eventually do something clever here 
 
-        if len(self.cards) > 0:
-            screen.blit(self.cards[-1].image, self)
+        dy = 0
+        for card in self.cards:
+            screen.blit(card.image, self.move(0, dy))
+            dy += 20
 
     def update(self, mouse):
         self.center = mouse
