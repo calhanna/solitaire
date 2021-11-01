@@ -299,6 +299,11 @@ def reset():
 	history = []
 	victory = False
 
+	buttons = [
+		Button((15,15), 'reset()', 'new_game'), # Reset button
+		Button((55,15), 'undo()', 'undo'), # Undo button
+	]
+
 def undo():	
 	""" Reverts the gamestate back to the frontmost entry in the history, and then removes the frontmost entry """
 	global tableau, foundations, stock
@@ -452,11 +457,11 @@ while not done:
 	# Victory checking
 	if not victory:
 		victory = True
-		for stack in tableau:
-			if len(stack.hidden_cards) != 0 or len(stack.revealed_cards) != 0:
-				victory = False
-		if len(stack.revealed_cards) != 0 or len(stack.hidden_cards) != 0:
-			victory = False
+		#for stack in tableau:
+		#	if len(stack.hidden_cards) != 0 or len(stack.revealed_cards) != 0:
+		#		victory = False
+		#if len(stack.revealed_cards) != 0 or len(stack.hidden_cards) != 0:
+		#	victory = False
 		
 		if victory:
 			buttons = [

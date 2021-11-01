@@ -5,11 +5,14 @@ class Button(Rect):
     """ UI Button class. Rectangle with icon and function """
     
     def __init__(self, pos:tuple, func:str, icon:str):
-        Rect.__init__(self, pos[0], pos[1], 30, 30)
+        Rect.__init__(self, pos[0], pos[1], 0, 0)
         self.function = func
 
         self.icon = pygame.image.load('images/icons/' + icon + '.png')
         self.alt_icon = pygame.image.load('images/icons/' + icon + '_alt.png')
+
+        self.width = self.icon.get_rect().width
+        self.height = self.icon.get_rect().height
 
         try:
             self.disabled_icon = pygame.image.load('images/icons/' + icon + '_disabled.png')
