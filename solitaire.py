@@ -294,7 +294,7 @@ tableau, foundations, stock = create_board(deck)
 def reset():
 	""" Resets the game """
 
-	global deck, tableau, foundations, stock, history, victory
+	global deck, tableau, foundations, stock, history, victory, buttons
 
 	deck = create_deck()
 	tableau, foundations, stock = create_board(deck)
